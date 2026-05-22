@@ -187,7 +187,7 @@
         </div>
     </div>
 
-    <script>
+ <script>
         let currentSeats = [];
         let numCols = 6;
         let numRows = 5;
@@ -200,6 +200,9 @@
         let isMoving = false;
         let dragTimer = null;
 
+        // 【バグ修正用】タッチ操作直後のマウスイベント誤発火を防ぐタイムスタンプ
+        let lastTouchTime = 0;
+
         function shuffleSeats() {
             const namesText = document.getElementById('namesInput').value;
             numRows = parseInt(document.getElementById('rowsInput').value);
@@ -211,7 +214,7 @@
             while (names.length < totalSeats) { names.push("空席"); }
             names = names.slice(0, totalSeats);
             
-            // Fisher-Yates
+            // Fisher-Yates シャッフル
             for (let i = names.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [names[i], names[j]] = [names[j], names[i]];
@@ -225,16 +228,13 @@
             const currentName = currentSeats[index];
             const defaultText = currentName === "空席" ? "" : currentName;
             
-            // 少し遅延させることで、ドラッグ/タップ判定の競合を回避
-            setTimeout(() => {
-                const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
-                if (newName !== null) {
-                    const trimmed = newName.trim();
-                    currentSeats[index] = trimmed === "" ? "空席" : trimmed;
-                    renderBoard();
-                    syncTextarea();
-                }
-            }, 50);
+            const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
+            if (newName !== null) {
+                const trimmed = newName.trim();
+                currentSeats[index] = trimmed === "" ? "空席" : trimmed;
+                renderBoard();
+                syncTextarea();
+            }
         }
 
         function syncTextarea() {
@@ -265,13 +265,21 @@
                 seatDiv.addEventListener('dragleave', () => seatDiv.classList.remove('drag-over'));
                 seatDiv.addEventListener('drop', handleDrop);
                 
-                // PCでのクリック（ドラッグで終わった場合は発火させない）
+                // PCでのクリック（直前にタッチ操作があった場合はガードして無視する）
                 let isPcDrag = false;
-                seatDiv.addEventListener('mousedown', () => isPcDrag = false);
-                seatDiv.addEventListener('mousemove', () => isPcDrag = true);
-                seatDiv.addEventListener('mouseup', () => { if(!isPcDrag) editSeat(index); });
+                seatDiv.addEventListener('mousedown', () => {
+                    if (Date.now() - lastTouchTime < 500) return;
+                    isPcDrag = false;
+                });
+                seatDiv.addEventListener('mousemove', () => {
+                    isPcDrag = true;
+                });
+                seatDiv.addEventListener('mouseup', () => {
+                    if (Date.now() - lastTouchTime < 500) return;
+                    if(!isPcDrag) editSeat(index);
+                });
 
-                // === スマホ用イベント（改善版） ===
+                // === スマホ用イベント ===
                 seatDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
                 seatDiv.addEventListener('touchmove', handleTouchMove, { passive: false });
                 seatDiv.addEventListener('touchend', handleTouchEnd);
@@ -280,7 +288,6 @@
             });
             
             document.getElementById('board-section').style.display = 'block';
-            document.getElementById('board-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function swapSeats(sourceIndex, targetIndex) {
@@ -299,10 +306,11 @@
             swapSeats(sourceIndex, this.dataset.index);
         }
 
-        // --- スマホ用タッチ処理（バグ修正版） ---
+        // --- スマホ用タッチ処理 ---
         function handleTouchStart(e) {
             if (e.touches.length > 1) return;
-            // ページ全体のスクロールを無効化（この要素上のみ）
+            lastTouchTime = Date.now(); // タッチされた時間を記録
+            
             const touch = e.touches[0];
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
@@ -311,11 +319,9 @@
             currentDragElement = this;
             dragStartIndex = this.dataset.index;
             
-            // 長押しでドラッグ開始とする（誤作動防止）
             dragTimer = setTimeout(() => {
                 if(!isMoving) {
                     this.classList.add('dragging');
-                    // スマホのバイブレーション（対応機種のみ）
                     if (navigator.vibrate) navigator.vibrate(50);
                 }
             }, 200);
@@ -328,10 +334,9 @@
             const moveX = Math.abs(touch.clientX - touchStartX);
             const moveY = Math.abs(touch.clientY - touchStartY);
             
-            // 少しでも動いたらスクロールを防止してドラッグ処理へ
             if (moveX > 10 || moveY > 10) {
                 isMoving = true;
-                e.preventDefault(); // ここでスクロールを止める
+                e.preventDefault(); 
                 currentDragElement.classList.add('dragging');
                 
                 const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -347,14 +352,14 @@
             clearTimeout(dragTimer);
             if (!currentDragElement) return;
             
+            lastTouchTime = Date.now(); // タッチが終わった時間を記録
             currentDragElement.classList.remove('dragging');
             document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
             
-            // 動いていない（タップ）なら編集ダイアログを開く
             if (!isMoving) {
+                e.preventDefault(); // スマホタップ時は、後続のマウスイベントを完全にキャンセルする
                 editSeat(dragStartIndex);
             } else {
-                // 動いていた（ドラッグ）なら入れ替え
                 const touch = e.changedTouches[0];
                 const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (elementBelow && elementBelow.classList.contains('seat')) {
@@ -405,7 +410,6 @@
 
         function downloadImage() {
             const captureArea = document.getElementById('capture-area');
-            // 画像化時はダークモード等の影響をリセットして綺麗に出力する
             const originalBg = captureArea.style.background;
             captureArea.style.background = getComputedStyle(document.body).getPropertyValue('--container-bg');
             
@@ -417,6 +421,6 @@
                 captureArea.style.background = originalBg;
             });
         }
-    </script>
+            </script>                   
 </body>
     </html>
