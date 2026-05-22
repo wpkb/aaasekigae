@@ -3,77 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>直感！席替えアプリ</title>
+    <title>Smart Seating App | 席替えアプリ</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif; text-align: center; background: #f4f7f6; margin: 0; padding: 20px; color: #333; overscroll-behavior-y: none; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        textarea { width: 100%; height: 120px; padding: 12px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; resize: vertical; }
-        
-        .controls { margin: 20px 0; display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap; }
-        .controls label { font-weight: bold; }
-        .controls input { padding: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        
-        .btn { padding: 10px 20px; font-size: 16px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; }
-        .btn-main { background: #4ca1af; font-size: 18px; padding: 12px 30px; border-radius: 30px; box-shadow: 0 4px 6px rgba(76, 161, 175, 0.3); }
-        .btn-main:hover { background: #3b8d9a; transform: translateY(-2px); }
-        .btn-sub { background: #7f8c8d; }
-        .btn-image { background: #e67e22; }
-        
-        #board-section { display: none; margin-top: 30px; background: white; padding: 20px; border-radius: 12px; }
-        .board { background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; letter-spacing: 2px; }
-        
-        .seating-grid { display: grid; gap: 10px; justify-content: center; position: relative; }
-        .seat { 
-            background: #fffdf5; border: 2px solid #e1d3b1; padding: 15px 5px; border-radius: 8px; 
-            font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-            display: flex; align-items: center; justify-content: center; word-break: break-all;
-            cursor: grab; user-select: none; font-size: 14px;
-            /* タッチデバイスでのハイライトや長押しメニューを防止 */
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            touch-action: none; 
+        :root {
+            --bg-color: #f0f4f8;
+            --container-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #2d3748;
+            --border-color: #e2e8f0;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #64748b;
+            --accent: #f59e0b;
+            --seat-bg: #ffffff;
+            --seat-border: #cbd5e1;
+            --board-bg: #1e293b;
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
         }
-        .seat:active { cursor: grabbing; transform: scale(0.95); }
-        .seat.drag-over { background: #e0f7fa; border-color: #4ca1af; border-style: dashed; }
-        .seat.dragging { opacity: 0.6; transform: scale(1.05); z-index: 100; box-shadow: 0 8px 16px rgba(0,0,0,0.2); }
-        .empty-seat { color: #aaa; background: #f9f9f9; border-color: #ddd; }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0f172a;
+                --container-bg: rgba(30, 41, 59, 0.85);
+                --text-color: #f8fafc;
+                --border-color: #334155;
+                --primary: #6366f1;
+                --primary-hover: #4f46e5;
+                --seat-bg: #1e293b;
+                --seat-border: #475569;
+                --board-bg: #0f172a;
+                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            }
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px;
+            transition: background-color 0.3s;
+            /* iOSでの引っ張りスクロール等は許可しつつ、特定の要素でのみ無効化するよう変更 */
+        }
         
-        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .container { 
+            max-width: 900px; margin: auto; padding: 30px; 
+            background: var(--container-bg);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px; box-shadow: var(--glass-shadow); border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        h1 { text-align: center; font-size: 2rem; font-weight: 800; margin-bottom: 30px; background: linear-gradient(135deg, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        textarea { 
+            width: 100%; height: 120px; padding: 15px; box-sizing: border-box; 
+            border: 1px solid var(--border-color); border-radius: 12px; font-size: 15px; 
+            background: rgba(255,255,255,0.05); color: var(--text-color); resize: vertical;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+
+        .controls { display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap; margin: 25px 0; }
+        .input-group { display: flex; align-items: center; gap: 8px; background: rgba(100,116,139,0.1); padding: 8px 15px; border-radius: 10px; }
+        .input-group input { 
+            width: 50px; padding: 8px; border: none; border-radius: 6px; 
+            background: var(--bg-color); color: var(--text-color); font-weight: bold; text-align: center;
+        }
+
+        .btn { 
+            padding: 10px 20px; font-size: 14px; font-weight: 600; color: white; 
+            border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-main { background: var(--primary); font-size: 16px; padding: 12px 30px; border-radius: 30px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); }
+        .btn-main:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5); }
+        .btn-sub { background: var(--secondary); }
+        .btn-sub:hover { background: #475569; }
+        .btn-image { background: var(--accent); color: #fff; }
+
+        #board-section { display: none; margin-top: 40px; }
+        .board-container { padding: 30px; border-radius: 16px; background: var(--container-bg); border: 1px solid var(--border-color); }
+        
+        .board { 
+            background: var(--board-bg); color: #fff; padding: 12px; border-radius: 8px; 
+            margin: 0 auto 30px; font-weight: bold; letter-spacing: 4px; text-align: center;
+            width: 60%; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2);
+        }
+        
+        .seating-grid { display: grid; gap: 12px; justify-content: center; position: relative; }
+        .seat { 
+            background: var(--seat-bg); border: 2px solid var(--seat-border); padding: 15px 5px; border-radius: 12px; 
+            font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: var(--text-color);
+            display: flex; align-items: center; justify-content: center; word-break: break-all;
+            cursor: pointer; user-select: none; font-size: 14px; 
+            transition: all 0.2s ease;
+            /* iOS用の設定 */
+            -webkit-touch-callout: none;
+        }
+        .seat:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); border-color: var(--primary); }
+        .seat.drag-over { background: rgba(79, 70, 229, 0.1); border-color: var(--primary); border-style: dashed; transform: scale(1.05); }
+        .seat.dragging { opacity: 0.5; transform: scale(0.95); z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .empty-seat { color: var(--secondary); background: rgba(100,116,139,0.05); border-style: dashed; }
+        
+        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .instruction { font-size: 13px; color: var(--secondary); display: flex; flex-direction: column; gap: 5px; text-align: left; }
+        
+        /* 開発者クレジット */
+        .developer-credit { 
+            margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); 
+            display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .dev-badge { font-size: 12px; color: var(--secondary); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .social-links { display: flex; gap: 15px; }
+        .social-link { 
+            display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-color);
+            padding: 8px 16px; border-radius: 20px; background: rgba(100,116,139,0.1); transition: 0.2s;
+            font-size: 14px; font-weight: 500;
+        }
+        .social-link:hover { background: rgba(100,116,139,0.2); transform: translateY(-2px); }
+        .social-link.x:hover { color: #000; background: #fff; border: 1px solid #ccc;}
+        .social-link.youtube:hover { color: #ff0000; }
+        
+        @media (max-width: 600px) {
+            .action-bar { flex-direction: column; align-items: stretch; }
+            .board { width: 90%; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>💺席替えアプリ</h1>
+        <h1>Smart Seating App</h1>
         
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
-            <p style="text-align: left; font-weight: bold; margin: 0;">生徒の名前を改行で入力：</p>
-            <div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+            <p style="font-weight: 600; margin: 0; font-size: 14px; color: var(--secondary);">メンバーリスト (改行区切り)</p>
+            <div style="display: flex; gap: 8px;">
                 <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadData(event)">
-                <button class="btn btn-sub" onclick="document.getElementById('fileInput').click()">📁 読込</button>
-                <button class="btn btn-sub" onclick="saveData()">💾 保存</button>
+                <button class="btn btn-sub" onclick="document.getElementById('fileInput').click()"><i class="fas fa-folder-open"></i> 読込</button>
+                <button class="btn btn-sub" onclick="saveData()"><i class="fas fa-save"></i> 保存</button>
             </div>
         </div>
         
         <textarea id="namesInput" placeholder="山田太郎&#10;佐藤花子&#10;鈴木一郎"></textarea>
         
         <div class="controls">
-            <label>縦: <input type="number" id="rowsInput" value="5" min="1" max="15" style="width: 50px;"> 列</label>
-            <label>横: <input type="number" id="colsInput" value="6" min="1" max="15" style="width: 50px;"> 列</label>
-            <button class="btn btn-main" onclick="shuffleSeats()">席をシャッフル ✨</button>
+            <div class="input-group">
+                <i class="fas fa-arrows-alt-v" style="color: var(--secondary);"></i>
+                <label>縦</label>
+                <input type="number" id="rowsInput" value="5" min="1" max="15">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-arrows-alt-h" style="color: var(--secondary);"></i>
+                <label>横</label>
+                <input type="number" id="colsInput" value="6" min="1" max="15">
+            </div>
+            <button class="btn btn-main" onclick="shuffleSeats()"><i class="fas fa-random"></i> シャッフル</button>
         </div>
-
-        <hr style="border: 0; height: 1px; background: #eee; margin: 30px 0;">
 
         <div id="board-section">
             <div class="action-bar">
-                <p style="color: #666; font-size: 14px; margin: 0;">💡 席をドラッグ（長押ししてスワイプ）で入れ替え可能です。</p>
-                <button class="btn btn-image" onclick="downloadImage()">📷 画像として保存 (.png)</button>
+                <div class="instruction">
+                    <span><i class="fas fa-hand-pointer"></i> <b>タップ</b>: 名前の変更・追加・削除</span>
+                    <span><i class="fas fa-hand-rock"></i> <b>ドラッグ</b>: 座席の入れ替え</span>
+                </div>
+                <button class="btn btn-image" onclick="downloadImage()"><i class="fas fa-camera"></i> 画像として書き出し</button>
             </div>
             
-            <div id="capture-area" style="padding: 10px; background: white;">
-                <div class="board">黒板（教卓）</div>
+            <div id="capture-area" class="board-container">
+                <div class="board">FRONT</div>
                 <div id="seatingGrid" class="seating-grid"></div>
+            </div>
+        </div>
+
+        <!-- 開発者クレジット -->
+        <div class="developer-credit">
+            <div class="dev-badge">Developed by</div>
+            <div class="social-links">
+                <a href="https://x.com/warp_Kirby_star" target="_blank" class="social-link x">
+                    <i class="fab fa-x-twitter"></i> @warp_Kirby_star
+                </a>
+                <a href="https://youtube.com/@warpstar-kirby" target="_blank" class="social-link youtube">
+                    <i class="fab fa-youtube"></i> @warpstar-kirby
+                </a>
             </div>
         </div>
     </div>
@@ -83,9 +192,13 @@
         let numCols = 6;
         let numRows = 5;
 
-        // --- タッチ操作用の変数 ---
+        // ドラッグ管理
         let dragStartIndex = null;
         let currentDragElement = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isMoving = false;
+        let dragTimer = null;
 
         function shuffleSeats() {
             const namesText = document.getElementById('namesInput').value;
@@ -98,6 +211,7 @@
             while (names.length < totalSeats) { names.push("空席"); }
             names = names.slice(0, totalSeats);
             
+            // Fisher-Yates
             for (let i = names.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [names[i], names[j]] = [names[j], names[i]];
@@ -105,6 +219,27 @@
             
             currentSeats = names;
             renderBoard();
+        }
+
+        function editSeat(index) {
+            const currentName = currentSeats[index];
+            const defaultText = currentName === "空席" ? "" : currentName;
+            
+            // 少し遅延させることで、ドラッグ/タップ判定の競合を回避
+            setTimeout(() => {
+                const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
+                if (newName !== null) {
+                    const trimmed = newName.trim();
+                    currentSeats[index] = trimmed === "" ? "空席" : trimmed;
+                    renderBoard();
+                    syncTextarea();
+                }
+            }, 50);
+        }
+
+        function syncTextarea() {
+            const activeNames = currentSeats.filter(n => n !== "空席");
+            document.getElementById('namesInput').value = activeNames.join('\n');
         }
 
         function renderBoard() {
@@ -118,28 +253,36 @@
                 seatDiv.textContent = name;
                 seatDiv.dataset.index = index;
                 
-                // PC用: 従来のドラッグ＆ドロップ
+                // === PC用イベント ===
                 seatDiv.draggable = true;
                 seatDiv.addEventListener('dragstart', (e) => {
+                    dragStartIndex = index;
                     e.dataTransfer.setData('text/plain', index);
-                    setTimeout(() => seatDiv.style.opacity = '0.5', 0);
+                    setTimeout(() => seatDiv.classList.add('dragging'), 0);
                 });
-                seatDiv.addEventListener('dragend', () => seatDiv.style.opacity = '1');
+                seatDiv.addEventListener('dragend', () => seatDiv.classList.remove('dragging'));
                 seatDiv.addEventListener('dragover', (e) => { e.preventDefault(); seatDiv.classList.add('drag-over'); });
                 seatDiv.addEventListener('dragleave', () => seatDiv.classList.remove('drag-over'));
                 seatDiv.addEventListener('drop', handleDrop);
+                
+                // PCでのクリック（ドラッグで終わった場合は発火させない）
+                let isPcDrag = false;
+                seatDiv.addEventListener('mousedown', () => isPcDrag = false);
+                seatDiv.addEventListener('mousemove', () => isPcDrag = true);
+                seatDiv.addEventListener('mouseup', () => { if(!isPcDrag) editSeat(index); });
 
-                // スマホ用: タッチイベント
+                // === スマホ用イベント（改善版） ===
                 seatDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
                 seatDiv.addEventListener('touchmove', handleTouchMove, { passive: false });
                 seatDiv.addEventListener('touchend', handleTouchEnd);
 
                 grid.appendChild(seatDiv);
             });
+            
             document.getElementById('board-section').style.display = 'block';
+            document.getElementById('board-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // --- 共通のドロップ（入れ替え）処理 ---
         function swapSeats(sourceIndex, targetIndex) {
             if (sourceIndex !== null && targetIndex !== null && sourceIndex !== targetIndex) {
                 const temp = currentSeats[sourceIndex];
@@ -149,64 +292,82 @@
             }
         }
 
-        // PC用ドロップ処理
         function handleDrop(e) {
             e.preventDefault();
             this.classList.remove('drag-over');
             const sourceIndex = e.dataTransfer.getData('text/plain');
-            const targetIndex = this.dataset.index;
-            swapSeats(sourceIndex, targetIndex);
+            swapSeats(sourceIndex, this.dataset.index);
         }
 
-        // --- スマホ用タッチ処理 ---
+        // --- スマホ用タッチ処理（バグ修正版） ---
         function handleTouchStart(e) {
-            e.preventDefault(); // スクロールを防止
+            if (e.touches.length > 1) return;
+            // ページ全体のスクロールを無効化（この要素上のみ）
             const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            isMoving = false;
+            
             currentDragElement = this;
             dragStartIndex = this.dataset.index;
-            this.classList.add('dragging');
+            
+            // 長押しでドラッグ開始とする（誤作動防止）
+            dragTimer = setTimeout(() => {
+                if(!isMoving) {
+                    this.classList.add('dragging');
+                    // スマホのバイブレーション（対応機種のみ）
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }
+            }, 200);
         }
 
         function handleTouchMove(e) {
-            e.preventDefault(); // スクロールを防止
             if (!currentDragElement) return;
             
             const touch = e.touches[0];
+            const moveX = Math.abs(touch.clientX - touchStartX);
+            const moveY = Math.abs(touch.clientY - touchStartY);
             
-            // タッチしている座標の下にある要素を取得
-            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-            
-            // 既存のハイライトを消す
-            document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
-            
-            // 乗っている要素が座席であればハイライト
-            if (elementBelow && elementBelow.classList.contains('seat') && elementBelow !== currentDragElement) {
-                elementBelow.classList.add('drag-over');
+            // 少しでも動いたらスクロールを防止してドラッグ処理へ
+            if (moveX > 10 || moveY > 10) {
+                isMoving = true;
+                e.preventDefault(); // ここでスクロールを止める
+                currentDragElement.classList.add('dragging');
+                
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
+                
+                if (elementBelow && elementBelow.classList.contains('seat') && elementBelow !== currentDragElement) {
+                    elementBelow.classList.add('drag-over');
+                }
             }
         }
 
         function handleTouchEnd(e) {
+            clearTimeout(dragTimer);
             if (!currentDragElement) return;
             
             currentDragElement.classList.remove('dragging');
-            const touch = e.changedTouches[0];
-            
-            // 指を離した場所にある要素を取得
-            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-            
-            // ハイライトを消す
             document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
-
-            if (elementBelow && elementBelow.classList.contains('seat')) {
-                const targetIndex = elementBelow.dataset.index;
-                swapSeats(dragStartIndex, targetIndex);
+            
+            // 動いていない（タップ）なら編集ダイアログを開く
+            if (!isMoving) {
+                editSeat(dragStartIndex);
+            } else {
+                // 動いていた（ドラッグ）なら入れ替え
+                const touch = e.changedTouches[0];
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                if (elementBelow && elementBelow.classList.contains('seat')) {
+                    swapSeats(dragStartIndex, elementBelow.dataset.index);
+                }
             }
             
             currentDragElement = null;
             dragStartIndex = null;
+            isMoving = false;
         }
 
-        // --- データ保存・読込・画像保存 ---
+        // --- ファイル操作・画像化 ---
         function saveData() {
             if (currentSeats.length === 0) return;
             const data = {
@@ -218,7 +379,7 @@
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = 'sekigae_data.json'; a.click();
+            a.href = url; a.download = 'SmartSeating_Data.json'; a.click();
             URL.revokeObjectURL(url);
         }
 
@@ -244,13 +405,18 @@
 
         function downloadImage() {
             const captureArea = document.getElementById('capture-area');
-            html2canvas(captureArea, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+            // 画像化時はダークモード等の影響をリセットして綺麗に出力する
+            const originalBg = captureArea.style.background;
+            captureArea.style.background = getComputedStyle(document.body).getPropertyValue('--container-bg');
+            
+            html2canvas(captureArea, { scale: 2, backgroundColor: null }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = '座席表.png';
+                link.download = 'Seating_Chart.png';
                 link.href = canvas.toDataURL('image/png');
                 link.click();
+                captureArea.style.background = originalBg;
             });
         }
     </script>
 </body>
-</html>
+    </html>
