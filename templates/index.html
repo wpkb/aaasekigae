@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Seating App | 席替えアプリ</title>
+    <title>Smart Seating App | 直感席替え</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
@@ -41,7 +41,6 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px;
             transition: background-color 0.3s;
-            /* iOSでの引っ張りスクロール等は許可しつつ、特定の要素でのみ無効化するよう変更 */
         }
         
         .container { 
@@ -80,6 +79,18 @@
         .btn-sub:hover { background: #475569; }
         .btn-image { background: var(--accent); color: #fff; }
 
+        /* モード切替ツールバー（ペイントモード） */
+        .tool-bar { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .tool-btn { 
+            padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 20px; 
+            background: var(--container-bg); color: var(--text-color); cursor: pointer; font-weight: bold;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .tool-btn:hover { transform: translateY(-2px); background: rgba(100,116,139,0.05); }
+        .tool-btn.active { border-color: var(--primary); background: rgba(79, 70, 229, 0.1); color: var(--primary); }
+        .tool-btn[data-mode="male"].active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .tool-btn[data-mode="female"].active { border-color: #ec4899; background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+
         #board-section { display: none; margin-top: 40px; }
         .board-container { padding: 30px; border-radius: 16px; background: var(--container-bg); border: 1px solid var(--border-color); }
         
@@ -90,24 +101,35 @@
         }
         
         .seating-grid { display: grid; gap: 12px; justify-content: center; position: relative; }
+        
+        /* 座席の色分けCSS */
         .seat { 
-            background: var(--seat-bg); border: 2px solid var(--seat-border); padding: 15px 5px; border-radius: 12px; 
+            background: var(--seat-bg); border: 2px solid var(--seat-border); 
+            border-left-width: 6px; border-left-color: var(--seat-border); /* 色用の太枠 */
+            padding: 15px 5px; border-radius: 12px; 
             font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: var(--text-color);
             display: flex; align-items: center; justify-content: center; word-break: break-all;
-            cursor: pointer; user-select: none; font-size: 14px; 
-            transition: all 0.2s ease;
-            /* iOS用の設定 */
+            cursor: pointer; user-select: none; font-size: 14px; transition: all 0.2s ease;
             -webkit-touch-callout: none;
         }
-        .seat:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); border-color: var(--primary); }
-        .seat.drag-over { background: rgba(79, 70, 229, 0.1); border-color: var(--primary); border-style: dashed; transform: scale(1.05); }
-        .seat.dragging { opacity: 0.5; transform: scale(0.95); z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .empty-seat { color: var(--secondary); background: rgba(100,116,139,0.05); border-style: dashed; }
+        .seat:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
         
-        .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        /* 男女の色設定 */
+        .seat.male { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+        .seat.female { border-left-color: #ec4899; background: rgba(236, 72, 153, 0.08); }
+        
+        @media (prefers-color-scheme: dark) {
+            .seat.male { background: rgba(59, 130, 246, 0.15); }
+            .seat.female { background: rgba(236, 72, 153, 0.15); }
+        }
+
+        .seat.drag-over { background: rgba(79, 70, 229, 0.2); border-color: var(--primary); border-style: dashed; transform: scale(1.05); }
+        .seat.dragging { opacity: 0.5; transform: scale(0.95); z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .empty-seat { color: var(--secondary); background: rgba(100,116,139,0.05); border-style: dashed; border-left-color: var(--seat-border); }
+        
+        .action-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         .instruction { font-size: 13px; color: var(--secondary); display: flex; flex-direction: column; gap: 5px; text-align: left; }
         
-        /* 開発者クレジット */
         .developer-credit { 
             margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); 
             display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;
@@ -159,10 +181,18 @@
         </div>
 
         <div id="board-section">
+            <!-- モード切替ツールバー -->
+            <div class="tool-bar" id="toolBar">
+                <button class="tool-btn active" data-mode="name" onclick="setMode('name')"><i class="fas fa-font"></i> 名前編集</button>
+                <button class="tool-btn" data-mode="male" onclick="setMode('male')"><i class="fas fa-mars"></i> 男子(青)</button>
+                <button class="tool-btn" data-mode="female" onclick="setMode('female')"><i class="fas fa-venus"></i> 女子(赤)</button>
+                <button class="tool-btn" data-mode="none" onclick="setMode('none')"><i class="fas fa-eraser"></i> 色消し</button>
+            </div>
+
             <div class="action-bar">
                 <div class="instruction">
-                    <span><i class="fas fa-hand-pointer"></i> <b>タップ</b>: 名前の変更・追加・削除</span>
-                    <span><i class="fas fa-hand-rock"></i> <b>ドラッグ</b>: 座席の入れ替え</span>
+                    <span><i class="fas fa-paint-brush"></i> <b>タップ</b>: 上のボタンで選んだモードが適用されます</span>
+                    <span><i class="fas fa-hand-rock"></i> <b>ドラッグ</b>: 座席の入れ替え（色は維持されます）</span>
                 </div>
                 <button class="btn btn-image" onclick="downloadImage()"><i class="fas fa-camera"></i> 画像として書き出し</button>
             </div>
@@ -173,7 +203,6 @@
             </div>
         </div>
 
-        <!-- 開発者クレジット -->
         <div class="developer-credit">
             <div class="dev-badge">Developed by</div>
             <div class="social-links">
@@ -181,16 +210,20 @@
                     <i class="fa-brands fa-x-twitter"></i> @warp_Kirby_star
                 </a>
                 <a href="https://youtube.com/@warpstar-kirby" target="_blank" class="social-link youtube">
-                    <i class="fab fa-youtube"></i> @warpstar-kirby
+                    <i class="fa-brands fa-youtube"></i> @warpstar-kirby
                 </a>
             </div>
         </div>
     </div>
 
- <script>
-        let currentSeats = [];
+    <script>
+        // currentSeats を、名前と性別を持つオブジェクト配列に変更
+        let seatData = []; 
         let numCols = 6;
         let numRows = 5;
+
+        // ペイントモード ('name', 'male', 'female', 'none')
+        let currentMode = 'name';
 
         // ドラッグ管理
         let dragStartIndex = null;
@@ -199,46 +232,78 @@
         let touchStartY = 0;
         let isMoving = false;
         let dragTimer = null;
-
-        // 【バグ修正用】タッチ操作直後のマウスイベント誤発火を防ぐタイムスタンプ
         let lastTouchTime = 0;
+
+        // モード切替関数
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.mode === mode) btn.classList.add('active');
+            });
+        }
 
         function shuffleSeats() {
             const namesText = document.getElementById('namesInput').value;
             numRows = parseInt(document.getElementById('rowsInput').value);
             numCols = parseInt(document.getElementById('colsInput').value);
             
+            // 現在の席データから、「名前」と「設定されている色」を記憶して引き継ぐ
+            let currentGenderMap = {};
+            seatData.forEach(seat => {
+                if (seat.name !== "空席") currentGenderMap[seat.name] = seat.gender;
+            });
+            
             let names = namesText.split('\n').map(n => n.trim()).filter(n => n !== '');
             const totalSeats = numRows * numCols;
             
-            while (names.length < totalSeats) { names.push("空席"); }
-            names = names.slice(0, totalSeats);
+            // 新しい座席データを作成（記憶した色があれば適用、なければnone）
+            let newSeatData = names.map(name => {
+                return { name: name, gender: currentGenderMap[name] || "none" };
+            });
+
+            // 足りない分を空席で埋める
+            while (newSeatData.length < totalSeats) { 
+                newSeatData.push({ name: "空席", gender: "none" }); 
+            }
+            newSeatData = newSeatData.slice(0, totalSeats);
             
             // Fisher-Yates シャッフル
-            for (let i = names.length - 1; i > 0; i--) {
+            for (let i = newSeatData.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [names[i], names[j]] = [names[j], names[i]];
+                [newSeatData[i], newSeatData[j]] = [newSeatData[j], newSeatData[i]];
             }
             
-            currentSeats = names;
+            seatData = newSeatData;
             renderBoard();
         }
 
+        // タップされた時の処理（モードによって分岐）
         function editSeat(index) {
-            const currentName = currentSeats[index];
-            const defaultText = currentName === "空席" ? "" : currentName;
+            const seat = seatData[index];
             
-            const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
-            if (newName !== null) {
-                const trimmed = newName.trim();
-                currentSeats[index] = trimmed === "" ? "空席" : trimmed;
-                renderBoard();
-                syncTextarea();
+            if (currentMode === 'name') {
+                // 名前変更モード
+                const defaultText = seat.name === "空席" ? "" : seat.name;
+                const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
+                if (newName !== null) {
+                    const trimmed = newName.trim();
+                    seat.name = trimmed === "" ? "空席" : trimmed;
+                    if (seat.name === "空席") seat.gender = "none";
+                    renderBoard();
+                    syncTextarea();
+                }
+            } else {
+                // ペイント（色塗り）モード
+                if (seat.name !== "空席") { // 空席には色を塗らない
+                    seat.gender = currentMode;
+                    renderBoard();
+                }
             }
         }
 
         function syncTextarea() {
-            const activeNames = currentSeats.filter(n => n !== "空席");
+            const activeNames = seatData.filter(s => s.name !== "空席").map(s => s.name);
             document.getElementById('namesInput').value = activeNames.join('\n');
         }
 
@@ -247,10 +312,11 @@
             grid.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`;
             grid.innerHTML = '';
 
-            currentSeats.forEach((name, index) => {
+            seatData.forEach((seat, index) => {
                 const seatDiv = document.createElement('div');
-                seatDiv.className = `seat ${name === '空席' ? 'empty-seat' : ''}`;
-                seatDiv.textContent = name;
+                // 性別のクラス（male, female）を付与して色を変える
+                seatDiv.className = `seat ${seat.name === '空席' ? 'empty-seat' : ''} ${seat.gender !== 'none' ? seat.gender : ''}`;
+                seatDiv.textContent = seat.name;
                 seatDiv.dataset.index = index;
                 
                 // === PC用イベント ===
@@ -265,15 +331,12 @@
                 seatDiv.addEventListener('dragleave', () => seatDiv.classList.remove('drag-over'));
                 seatDiv.addEventListener('drop', handleDrop);
                 
-                // PCでのクリック（直前にタッチ操作があった場合はガードして無視する）
                 let isPcDrag = false;
                 seatDiv.addEventListener('mousedown', () => {
                     if (Date.now() - lastTouchTime < 500) return;
                     isPcDrag = false;
                 });
-                seatDiv.addEventListener('mousemove', () => {
-                    isPcDrag = true;
-                });
+                seatDiv.addEventListener('mousemove', () => isPcDrag = true);
                 seatDiv.addEventListener('mouseup', () => {
                     if (Date.now() - lastTouchTime < 500) return;
                     if(!isPcDrag) editSeat(index);
@@ -292,9 +355,9 @@
 
         function swapSeats(sourceIndex, targetIndex) {
             if (sourceIndex !== null && targetIndex !== null && sourceIndex !== targetIndex) {
-                const temp = currentSeats[sourceIndex];
-                currentSeats[sourceIndex] = currentSeats[targetIndex];
-                currentSeats[targetIndex] = temp;
+                const temp = seatData[sourceIndex];
+                seatData[sourceIndex] = seatData[targetIndex];
+                seatData[targetIndex] = temp;
                 renderBoard();
             }
         }
@@ -309,7 +372,7 @@
         // --- スマホ用タッチ処理 ---
         function handleTouchStart(e) {
             if (e.touches.length > 1) return;
-            lastTouchTime = Date.now(); // タッチされた時間を記録
+            lastTouchTime = Date.now();
             
             const touch = e.touches[0];
             touchStartX = touch.clientX;
@@ -352,75 +415,6 @@
             clearTimeout(dragTimer);
             if (!currentDragElement) return;
             
-            lastTouchTime = Date.now(); // タッチが終わった時間を記録
+            lastTouchTime = Date.now();
             currentDragElement.classList.remove('dragging');
-            document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
-            
-            if (!isMoving) {
-                e.preventDefault(); // スマホタップ時は、後続のマウスイベントを完全にキャンセルする
-                editSeat(dragStartIndex);
-            } else {
-                const touch = e.changedTouches[0];
-                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (elementBelow && elementBelow.classList.contains('seat')) {
-                    swapSeats(dragStartIndex, elementBelow.dataset.index);
-                }
-            }
-            
-            currentDragElement = null;
-            dragStartIndex = null;
-            isMoving = false;
-        }
-
-        // --- ファイル操作・画像化 ---
-        function saveData() {
-            if (currentSeats.length === 0) return;
-            const data = {
-                namesText: document.getElementById('namesInput').value,
-                rows: document.getElementById('rowsInput').value,
-                cols: document.getElementById('colsInput').value,
-                seats: currentSeats
-            };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'SmartSeating_Data.json'; a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function loadData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    document.getElementById('namesInput').value = data.namesText;
-                    document.getElementById('rowsInput').value = data.rows;
-                    document.getElementById('colsInput').value = data.cols;
-                    numRows = parseInt(data.rows);
-                    numCols = parseInt(data.cols);
-                    currentSeats = data.seats;
-                    renderBoard();
-                    document.getElementById('fileInput').value = '';
-                } catch (err) { alert("データの読み込みに失敗しました。"); }
-            };
-            reader.readAsText(file);
-        }
-
-        function downloadImage() {
-            const captureArea = document.getElementById('capture-area');
-            const originalBg = captureArea.style.background;
-            captureArea.style.background = getComputedStyle(document.body).getPropertyValue('--container-bg');
-            
-            html2canvas(captureArea, { scale: 2, backgroundColor: null }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = 'Seating_Chart.png';
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                captureArea.style.background = originalBg;
-            });
-        }
-            </script>                   
-</body>
-    </html>
+            document.query
