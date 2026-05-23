@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Seating App | 直感席替え</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --container-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #2d3748;
+            --border-color: #e2e8f0;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #64748b;
+            --accent: #f59e0b;
+            --seat-bg: #ffffff;
+            --seat-border: #cbd5e1;
+            --board-bg: #1e293b;
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0f172a;
+                --container-bg: rgba(30, 41, 59, 0.85);
+                --text-color: #f8fafc;
+                --border-color: #334155;
+                --primary: #6366f1;
+                --primary-hover: #4f46e5;
+                --seat-bg: #1e293b;
+                --seat-border: #475569;
+                --board-bg: #0f172a;
+                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            }
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px;
+            transition: background-color 0.3s;
+        }
+        
+        .container { 
+            max-width: 900px; margin: auto; padding: 30px; 
+            background: var(--container-bg);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px; box-shadow: var(--glass-shadow); border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        h1 { text-align: center; font-size: 2rem; font-weight: 800; margin-bottom: 30px; background: linear-gradient(135deg, var(--primary), #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        textarea { 
+            width: 100%; height: 120px; padding: 15px; box-sizing: border-box; 
+            border: 1px solid var(--border-color); border-radius: 12px; font-size: 15px; 
+            background: rgba(255,255,255,0.05); color: var(--text-color); resize: vertical;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2); }
+
+        .controls { display: flex; justify-content: center; gap: 15px; align-items: center; flex-wrap: wrap; margin: 25px 0; }
+        .input-group { display: flex; align-items: center; gap: 8px; background: rgba(100,116,139,0.1); padding: 8px 15px; border-radius: 10px; }
+        .input-group input { 
+            width: 50px; padding: 8px; border: none; border-radius: 6px; 
+            background: var(--bg-color); color: var(--text-color); font-weight: bold; text-align: center;
+        }
+
+        .btn { 
+            padding: 10px 20px; font-size: 14px; font-weight: 600; color: white; 
+            border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-main { background: var(--primary); font-size: 16px; padding: 12px 30px; border-radius: 30px; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); }
+        .btn-main:hover { background: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(79, 70, 229, 0.5); }
+        .btn-sub { background: var(--secondary); }
+        .btn-sub:hover { background: #475569; }
+        .btn-image { background: var(--accent); color: #fff; }
+
+        .tool-bar { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+        .tool-btn { 
+            padding: 8px 16px; border: 2px solid var(--border-color); border-radius: 20px; 
+            background: var(--container-bg); color: var(--text-color); cursor: pointer; font-weight: bold;
+            transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .tool-btn:hover { transform: translateY(-2px); background: rgba(100,116,139,0.05); }
+        .tool-btn.active { border-color: var(--primary); background: rgba(79, 70, 229, 0.1); color: var(--primary); }
+        .tool-btn[data-mode="male"].active { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .tool-btn[data-mode="female"].active { border-color: #ec4899; background: rgba(236, 72, 153, 0.1); color: #ec4899; }
+
+        #board-section { display: none; margin-top: 40px; }
+        .board-container { padding: 30px; border-radius: 16px; background: var(--container-bg); border: 1px solid var(--border-color); }
+        
+        .board { 
+            background: var(--board-bg); color: #fff; padding: 12px; border-radius: 8px; 
+            margin: 0 auto 30px; font-weight: bold; letter-spacing: 4px; text-align: center;
+            width: 60%; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.2);
+        }
+        
+        .seating-grid { display: grid; gap: 12px; justify-content: center; position: relative; }
+        
+        .seat { 
+            background: var(--seat-bg); border: 2px solid var(--seat-border); 
+            border-left-width: 6px; border-left-color: var(--seat-border);
+            padding: 15px 5px; border-radius: 12px; 
+            font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); color: var(--text-color);
+            display: flex; align-items: center; justify-content: center; word-break: break-all;
+            cursor: pointer; user-select: none; font-size: 14px; transition: all 0.2s ease;
+            -webkit-touch-callout: none;
+        }
+        .seat:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+        
+        .seat.male { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+        .seat.female { border-left-color: #ec4899; background: rgba(236, 72, 153, 0.08); }
+        
+        @media (prefers-color-scheme: dark) {
+            .seat.male { background: rgba(59, 130, 246, 0.15); }
+            .seat.female { background: rgba(236, 72, 153, 0.15); }
+        }
+
+        .seat.drag-over { background: rgba(79, 70, 229, 0.2); border-color: var(--primary); border-style: dashed; transform: scale(1.05); }
+        .seat.dragging { opacity: 0.5; transform: scale(0.95); z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .empty-seat { color: var(--secondary); background: rgba(100,116,139,0.05); border-style: dashed; border-left-color: var(--seat-border); }
+        
+        .action-bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .instruction { font-size: 13px; color: var(--secondary); display: flex; flex-direction: column; gap: 5px; text-align: left; }
+        
+        .developer-credit { 
+            margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border-color); 
+            display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;
+        }
+        .dev-badge { font-size: 12px; color: var(--secondary); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .social-links { display: flex; gap: 15px; }
+        .social-link { 
+            display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-color);
+            padding: 8px 16px; border-radius: 20px; background: rgba(100,116,139,0.1); transition: 0.2s;
+            font-size: 14px; font-weight: 500;
+        }
+        .social-link:hover { background: rgba(100,116,139,0.2); transform: translateY(-2px); }
+        .social-link.x:hover { color: #000; background: #fff; border: 1px solid #ccc;}
+        .social-link.youtube:hover { color: #ff0000; }
+        
+        @media (max-width: 600px) {
+            .action-bar { flex-direction: column; align-items: stretch; }
+            .board { width: 90%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Smart Seating App</h1>
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+            <p style="font-weight: 600; margin: 0; font-size: 14px; color: var(--secondary);">メンバーリスト (改行区切り)</p>
+            <div style="display: flex; gap: 8px;">
+                <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadData(event)">
+                <button class="btn btn-sub" onclick="document.getElementById('fileInput').click()"><i class="fas fa-folder-open"></i> 読込</button>
+                <button class="btn btn-sub" onclick="saveData()"><i class="fas fa-save"></i> 保存</button>
+            </div>
+        </div>
+        
+        <textarea id="namesInput" placeholder="山田太郎&#10;佐藤花子&#10;鈴木一郎"></textarea>
+        
+        <div class="controls">
+            <div class="input-group">
+                <i class="fas fa-arrows-alt-v" style="color: var(--secondary);"></i>
+                <label>縦</label>
+                <input type="number" id="rowsInput" value="5" min="1" max="15">
+            </div>
+            <div class="input-group">
+                <i class="fas fa-arrows-alt-h" style="color: var(--secondary);"></i>
+                <label>横</label>
+                <input type="number" id="colsInput" value="6" min="1" max="15">
+            </div>
+            <button class="btn btn-main" onclick="shuffleSeats()"><i class="fas fa-random"></i> シャッフル</button>
+        </div>
+
+        <div id="board-section">
+            <div class="tool-bar" id="toolBar">
+                <button class="tool-btn active" data-mode="name" onclick="setMode('name')"><i class="fas fa-font"></i> 名前編集</button>
+                <button class="tool-btn" data-mode="male" onclick="setMode('male')"><i class="fas fa-mars"></i> 男子(青)</button>
+                <button class="tool-btn" data-mode="female" onclick="setMode('female')"><i class="fas fa-venus"></i> 女子(赤)</button>
+                <button class="tool-btn" data-mode="none" onclick="setMode('none')"><i class="fas fa-eraser"></i> 色消し</button>
+            </div>
+
+            <div class="action-bar">
+                <div class="instruction">
+                    <span><i class="fas fa-paint-brush"></i> <b>タップ</b>: 上のボタンで選んだモードが適用されます</span>
+                    <span><i class="fas fa-hand-rock"></i> <b>ドラッグ</b>: 座席の入れ替え（色は維持されます）</span>
+                </div>
+                <button class="btn btn-image" onclick="downloadImage()"><i class="fas fa-camera"></i> 画像として書き出し</button>
+            </div>
+            
+            <div id="capture-area" class="board-container">
+                <div class="board">FRONT</div>
+                <div id="seatingGrid" class="seating-grid"></div>
+            </div>
+        </div>
+
+        <div class="developer-credit">
+            <div class="dev-badge">Developed by</div>
+            <div class="social-links">
+                <a href="https://x.com/warp_Kirby_star" target="_blank" class="social-link x">
+                    <i class="fa-brands fa-x-twitter"></i> @warp_Kirby_star
+                </a>
+                <a href="https://youtube.com/@warpstar-kirby" target="_blank" class="social-link youtube">
+                    <i class="fa-brands fa-youtube"></i> @warpstar-kirby
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let seatData = []; 
+        let numCols = 6;
+        let numRows = 5;
+        let currentMode = 'name';
+
+        // ドラッグ・タップ管理用の変数
+        let dragStartIndex = null;
+        let currentDragElement = null;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isMoving = false;
+        let dragTimer = null;
+        let lastTouchTime = 0;
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.mode === mode) btn.classList.add('active');
+            });
+        }
+
+        function shuffleSeats() {
+            let namesText = document.getElementById('namesInput').value;
+            // 未入力でシャッフルを押した場合、プレースホルダーの値を使って空席だらけになるのを防ぐ
+            if (!namesText.trim()) {
+                namesText = document.getElementById('namesInput').placeholder;
+                document.getElementById('namesInput').value = namesText;
+            }
+
+            numRows = parseInt(document.getElementById('rowsInput').value) || 5;
+            numCols = parseInt(document.getElementById('colsInput').value) || 6;
+            
+            // 色の引き継ぎ
+            let currentGenderMap = {};
+            seatData.forEach(seat => {
+                if (seat && seat.name !== "空席") currentGenderMap[seat.name] = seat.gender;
+            });
+            
+            let names = namesText.split('\n').map(n => n.trim()).filter(n => n !== '');
+            const totalSeats = numRows * numCols;
+            
+            let newSeatData = names.map(name => {
+                return { name: name, gender: currentGenderMap[name] || "none" };
+            });
+
+            while (newSeatData.length < totalSeats) { 
+                newSeatData.push({ name: "空席", gender: "none" }); 
+            }
+            newSeatData = newSeatData.slice(0, totalSeats);
+            
+            // シャッフル処理
+            for (let i = newSeatData.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newSeatData[i], newSeatData[j]] = [newSeatData[j], newSeatData[i]];
+            }
+            
+            seatData = newSeatData;
+            renderBoard();
+        }
+
+        function editSeat(index) {
+            const seat = seatData[index];
+            if (!seat) return;
+            
+            if (currentMode === 'name') {
+                const defaultText = seat.name === "空席" ? "" : seat.name;
+                // ブラウザのフリーズを防ぐため、少し遅延させてダイアログを開く
+                setTimeout(() => {
+                    const newName = prompt("名前を変更 (空欄で空席になります)", defaultText);
+                    if (newName !== null) {
+                        const trimmed = newName.trim();
+                        seat.name = trimmed === "" ? "空席" : trimmed;
+                        if (seat.name === "空席") seat.gender = "none";
+                        renderBoard();
+                        syncTextarea();
+                    }
+                }, 50);
+            } else {
+                // 空席でも色を塗れるように変更（自由に配置しやすくするため）
+                seat.gender = currentMode;
+                renderBoard();
+            }
+        }
+
+        function syncTextarea() {
+            const activeNames = seatData.filter(s => s.name !== "空席").map(s => s.name);
+            document.getElementById('namesInput').value = activeNames.join('\n');
+        }
+
+        function renderBoard() {
+            const grid = document.getElementById('seatingGrid');
+            grid.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`;
+            grid.innerHTML = '';
+
+            seatData.forEach((seat, index) => {
+                const seatDiv = document.createElement('div');
+                seatDiv.className = `seat ${seat.name === '空席' ? 'empty-seat' : ''} ${seat.gender !== 'none' ? seat.gender : ''}`;
+                seatDiv.textContent = seat.name;
+                seatDiv.dataset.index = index;
+                
+                // === PC用イベント ===
+                seatDiv.draggable = true;
+                seatDiv.addEventListener('dragstart', (e) => {
+                    dragStartIndex = index;
+                    e.dataTransfer.setData('text/plain', index);
+                    setTimeout(() => seatDiv.classList.add('dragging'), 0);
+                });
+                seatDiv.addEventListener('dragend', () => seatDiv.classList.remove('dragging'));
+                seatDiv.addEventListener('dragover', (e) => { e.preventDefault(); seatDiv.classList.add('drag-over'); });
+                seatDiv.addEventListener('dragleave', () => seatDiv.classList.remove('drag-over'));
+                seatDiv.addEventListener('drop', handleDrop);
+                
+                // PCでの誤クリック判定を厳密に修正（マウスが少し動いただけではドラッグ扱いしない）
+                let mouseDownX = 0, mouseDownY = 0;
+                let isPcDrag = false;
+                seatDiv.addEventListener('mousedown', (e) => {
+                    if (Date.now() - lastTouchTime < 500) return;
+                    mouseDownX = e.clientX;
+                    mouseDownY = e.clientY;
+                    isPcDrag = false;
+                });
+                seatDiv.addEventListener('mousemove', (e) => {
+                    // 5ピクセル以上動いた場合のみドラッグとみなす
+                    if (Math.abs(e.clientX - mouseDownX) > 5 || Math.abs(e.clientY - mouseDownY) > 5) {
+                        isPcDrag = true;
+                    }
+                });
+                seatDiv.addEventListener('mouseup', () => {
+                    if (Date.now() - lastTouchTime < 500) return;
+                    if(!isPcDrag) editSeat(index);
+                });
+
+                // === スマホ用イベント ===
+                seatDiv.addEventListener('touchstart', handleTouchStart, { passive: false });
+                seatDiv.addEventListener('touchmove', handleTouchMove, { passive: false });
+                seatDiv.addEventListener('touchend', handleTouchEnd);
+
+                grid.appendChild(seatDiv);
+            });
+            
+            document.getElementById('board-section').style.display = 'block';
+        }
+
+        function swapSeats(sourceIndex, targetIndex) {
+            // 文字列ではなく数値として厳密に扱う
+            sourceIndex = parseInt(sourceIndex);
+            targetIndex = parseInt(targetIndex);
+            
+            if (!isNaN(sourceIndex) && !isNaN(targetIndex) && sourceIndex !== targetIndex) {
+                const temp = seatData[sourceIndex];
+                seatData[sourceIndex] = seatData[targetIndex];
+                seatData[targetIndex] = temp;
+                renderBoard();
+            }
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            const sourceIndex = e.dataTransfer.getData('text/plain');
+            swapSeats(sourceIndex, this.dataset.index);
+        }
+
+        // --- スマホ用タッチ処理 ---
+        function handleTouchStart(e) {
+            if (e.touches.length > 1) return;
+            lastTouchTime = Date.now();
+            
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            isMoving = false;
+            
+            currentDragElement = this;
+            dragStartIndex = parseInt(this.dataset.index);
+            
+            dragTimer = setTimeout(() => {
+                if(!isMoving && currentDragElement) {
+                    currentDragElement.classList.add('dragging');
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }
+            }, 200);
+        }
+
+        function handleTouchMove(e) {
+            if (!currentDragElement) return;
+            
+            const touch = e.touches[0];
+            const moveX = Math.abs(touch.clientX - touchStartX);
+            const moveY = Math.abs(touch.clientY - touchStartY);
+            
+            if (moveX > 10 || moveY > 10) {
+                isMoving = true;
+                e.preventDefault(); 
+                currentDragElement.classList.add('dragging');
+                
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
+                
+                if (elementBelow && elementBelow.classList.contains('seat') && elementBelow !== currentDragElement) {
+                    elementBelow.classList.add('drag-over');
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            clearTimeout(dragTimer);
+            
+            if (currentDragElement) {
+                currentDragElement.classList.remove('dragging');
+                document.querySelectorAll('.seat').forEach(el => el.classList.remove('drag-over'));
+                
+                if (!isMoving) {
+                    if (e.cancelable) e.preventDefault(); 
+                    editSeat(dragStartIndex);
+                } else {
+                    const touch = e.changedTouches[0];
+                    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (elementBelow && elementBelow.classList.contains('seat')) {
+                        swapSeats(dragStartIndex, elementBelow.dataset.index);
+                    }
+                }
+            }
+            
+            // バグ防止：確実に状態をリセットする
+            currentDragElement = null;
+            dragStartIndex = null;
+            isMoving = false; 
+            lastTouchTime = Date.now();
+        }
+
+        // --- ファイル操作・画像化 ---
+        function saveData() {
+            if (seatData.length === 0) return;
+            const data = {
+                namesText: document.getElementById('namesInput').value,
+                rows: document.getElementById('rowsInput').value,
+                cols: document.getElementById('colsInput').value,
+                seats: seatData 
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'SmartSeating_Data.json'; a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function loadData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    document.getElementById('namesInput').value = data.namesText;
+                    document.getElementById('rowsInput').value = data.rows;
+                    document.getElementById('colsInput').value = data.cols;
+                    numRows = parseInt(data.rows) || 5;
+                    numCols = parseInt(data.cols) || 6;
+                    
+                    const loadedSeats = data.seats || [];
+                    if (loadedSeats.length > 0 && typeof loadedSeats[0] === 'string') {
+                        seatData = loadedSeats.map(name => ({ name: name, gender: "none" }));
+                    } else {
+                        seatData = loadedSeats;
+                    }
+                    
+                    renderBoard();
+                    document.getElementById('fileInput').value = '';
+                } catch (err) { alert("データの読み込みに失敗しました。"); }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadImage() {
+            const captureArea = document.getElementById('capture-area');
+            const originalBg = captureArea.style.background;
+            captureArea.style.background = getComputedStyle(document.body).getPropertyValue('--container-bg');
+            
+            html2canvas(captureArea, { scale: 2, backgroundColor: null }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'Seating_Chart.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                captureArea.style.background = originalBg;
+            });
+        }
+    </script>
+</body>
+</html>
