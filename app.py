@@ -41,3 +41,17 @@ def ping():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
+from flask import send_from_directory
+
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory('.', 'manifest.json')
+
+@app.route('/sw.js')
+def sw():
+    return send_from_directory('.', 'sw.js')
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('.', filename)
