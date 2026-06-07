@@ -141,14 +141,21 @@
         .social-link:hover { background: rgba(100,116,139,0.2); transform: translateY(-2px); }
         .social-link.x:hover { color: #000; background: #fff; border: 1px solid #ccc;}
         .social-link.youtube:hover { color: #ff0000; }
-        
+
         @media (max-width: 600px) {
             .action-bar { flex-direction: column; align-items: stretch; }
             .board { width: 90%; }
         }
     </style>
-</head>
-<body>
+    <link rel="manifest" href="/manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
+</head> <body>
     <div class="container">
         <h1>Smart Seating App</h1>
         
